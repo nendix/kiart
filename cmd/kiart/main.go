@@ -23,6 +23,10 @@ func main() {
 	flag.StringVarP(&cfg.SkipHex, "skip", "", "", "HEX color to filter out and make transparent")
 	flag.Float64VarP(&cfg.TolerancePercent, "tol", "", 2.0, "Color tolerance percentage (0-100)")
 
+	flag.BoolVarP(&cfg.Shaded, "shaded", "", false, "Render characters using true grayscale shading")
+
+	flag.StringVarP(&cfg.BgHex, "bg", "b", "#000000", "Canvas background HEX color or 'transparent' (default: #000000)")
+
 	flag.StringVarP(&cfg.OutputPath, "out", "o", "ascii_art.png", "Path to save the output image")
 
 	flag.Usage = func() {

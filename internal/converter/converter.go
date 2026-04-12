@@ -23,6 +23,8 @@ type Config struct {
 	SkipHex          string
 	TolerancePercent float64
 	OutputPath       string
+	Shaded           bool
+	BgHex            string
 }
 
 var asciiChars = []rune{
@@ -32,17 +34,20 @@ var asciiChars = []rune{
 	'*', '#', 'M', 'W', '&', '8', '%', 'B', '@', '$',
 }
 
-var asciiLookup [256]rune
+var (
+	asciiLookup  [256]rune
+	grayUniforms [256]*image.Uniform
+)
 
 func init() {
 	for i := 0; i <= 255; i++ {
 		idx := int((float64(i) / 255.0) * float64(len(asciiChars)-1))
 		asciiLookup[i] = asciiChars[idx]
+
+		grayUniforms[i] = image.NewUniform(color.Gray{Y: uint8(i)})
 	}
 }
 
-// ProcessAndSave converts the image based on the provided Config
-// We return an 'error' instead of just printing to stdout so the CLI can handle it
 func ProcessAndSave(img image.Image, cfg Config) error {
 	bounds := img.Bounds()
 	width := bounds.Dx()
@@ -60,7 +65,6 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 			maxDist := math.Sqrt(255.0*255.0 + 255.0*255.0 + 255.0*255.0)
 			actualTolerance = (cfg.TolerancePercent / 100.0) * maxDist
 		} else {
-			// In a real app, you might want to return this error, but we'll just warn
 			fmt.Printf("Warning: Could not parse hex color '%s'. Color skipping disabled.\n", cfg.SkipHex)
 		}
 	}
@@ -92,11 +96,20 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 	outWidth := cfg.Width * charWidth
 	outHeight := newHeight * charHeight
 	outImg := image.NewRGBA(image.Rect(0, 0, outWidth, outHeight))
-	draw.Draw(outImg, outImg.Bounds(), &image.Uniform{color.Black}, image.Point{}, draw.Src)
+
+	bgColor, err := ParseHexColor(cfg.BgHex)
+	if err != nil {
+		fmt.Printf("Warning: Could not parse background hex '%s'. Defaulting to black.\n", cfg.BgHex)
+		bgColor = color.RGBA{0, 0, 0, 255}
+	}
+	draw.Draw(outImg, outImg.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
+
+	// Create our default white brush
+	whiteBrush := image.NewUniform(color.White)
 
 	d := &font.Drawer{
 		Dst:  outImg,
-		Src:  image.NewUniform(color.White),
+		Src:  whiteBrush,
 		Face: face,
 	}
 
@@ -120,6 +133,12 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 
 			grayColor := color.GrayModel.Convert(pixel).(color.Gray)
 			char := asciiLookup[grayColor.Y]
+
+			if cfg.Shaded {
+				d.Src = grayUniforms[grayColor.Y]
+			} else {
+				d.Src = whiteBrush
+			}
 
 			d.Dot = fixed.Point26_6{
 				X: fixed.I(x * charWidth),
