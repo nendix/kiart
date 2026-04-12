@@ -17,13 +17,14 @@ func main() {
 
 	// Syntax: (&variable, "long-name", "short-name", default_value, "Description")
 	flag.IntVarP(&cfg.Width, "width", "w", 510, "Width of the output ASCII art in characters")
-	flag.Float64VarP(&cfg.FontSize, "size", "s", 8.0, "Font size in points")
+	flag.Float64VarP(&cfg.FontSize, "font", "f", 8.0, "Font size in points")
 	flag.Float64VarP(&cfg.DPI, "dpi", "d", 300.0, "Resolution in Dots Per Inch")
 
 	flag.StringVarP(&cfg.SkipHex, "skip", "", "", "HEX color to filter out and make transparent")
 	flag.Float64VarP(&cfg.TolerancePercent, "tol", "", 2.0, "Color tolerance percentage (0-100)")
 
-	flag.BoolVarP(&cfg.Shaded, "shaded", "", false, "Render characters using true grayscale shading")
+	flag.BoolVarP(&cfg.Shaded, "shaded", "s", false, "Render characters using true grayscale shading")
+	flag.BoolVarP(&cfg.Colored, "colored", "c", false, "Render characters using original RGB colors")
 
 	flag.StringVarP(&cfg.BgHex, "bg", "b", "#000000", "Canvas background HEX color or 'transparent' (default: #000000)")
 
@@ -35,11 +36,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Options:\n")
 
 		flag.PrintDefaults()
-
-		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  kiart image.jpg\n")
-		fmt.Fprintf(os.Stderr, "  kiart -w 120 -s 14 image.jpg\n")
-		fmt.Fprintf(os.Stderr, "  kiart --skip #3A3A3A --tol 5 -o ascii_art.png image.jpg\n")
 	}
 
 	flag.Parse()

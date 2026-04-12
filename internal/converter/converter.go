@@ -24,6 +24,7 @@ type Config struct {
 	TolerancePercent float64
 	OutputPath       string
 	Shaded           bool
+	Colored          bool
 	BgHex            string
 }
 
@@ -108,8 +109,8 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 
 	draw.Draw(outImg, outImg.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
 
-	// Create our default white brush
 	whiteBrush := image.NewUniform(color.White)
+	dynamicBrush := &image.Uniform{}
 
 	d := &font.Drawer{
 		Dst:  outImg,
@@ -135,12 +136,20 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 				}
 			}
 
+			// We STILL need the grayscale value to figure out which ASCII character to use!
 			grayColor := color.GrayModel.Convert(pixel).(color.Gray)
 			char := asciiLookup[grayColor.Y]
 
-			if cfg.Shaded {
+			// --- NEW: Priority check for brushes ---
+			if cfg.Colored {
+				// Mutate our reusable brush with the exact original pixel color
+				dynamicBrush.C = pixel
+				d.Src = dynamicBrush
+			} else if cfg.Shaded {
+				// Use the pre-mixed grayscale brush
 				d.Src = grayUniforms[grayColor.Y]
 			} else {
+				// Default black-and-white
 				d.Src = whiteBrush
 			}
 
