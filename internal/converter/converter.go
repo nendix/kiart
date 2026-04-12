@@ -59,14 +59,14 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 
 	if cfg.SkipHex != "" {
 		parsedColor, err := ParseHexColor(cfg.SkipHex)
-		if err == nil {
-			skipColor = parsedColor
-			useColorSkip = true
-			maxDist := math.Sqrt(255.0*255.0 + 255.0*255.0 + 255.0*255.0)
-			actualTolerance = (cfg.TolerancePercent / 100.0) * maxDist
-		} else {
-			fmt.Printf("Warning: Could not parse hex color '%s'. Color skipping disabled.\n", cfg.SkipHex)
+		if err != nil {
+			return fmt.Errorf("invalid skip hex color '%s': %w", cfg.SkipHex, err)
 		}
+
+		skipColor = parsedColor
+		useColorSkip = true
+		maxDist := math.Sqrt(255.0*255.0 + 255.0*255.0 + 255.0*255.0)
+		actualTolerance = (cfg.TolerancePercent / 100.0) * maxDist
 	}
 
 	tt, err := opentype.Parse(gomono.TTF)
@@ -97,11 +97,15 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 	outHeight := newHeight * charHeight
 	outImg := image.NewRGBA(image.Rect(0, 0, outWidth, outHeight))
 
-	bgColor, err := ParseHexColor(cfg.BgHex)
-	if err != nil {
-		fmt.Printf("Warning: Could not parse background hex '%s'. Defaulting to black.\n", cfg.BgHex)
-		bgColor = color.RGBA{0, 0, 0, 255}
+	bgColor := color.RGBA{0, 0, 0, 255} // Default to solid black
+	if cfg.BgHex != "" {
+		parsedBg, err := ParseHexColor(cfg.BgHex)
+		if err != nil {
+			return fmt.Errorf("invalid background hex color '%s': %w", cfg.BgHex, err)
+		}
+		bgColor = parsedBg
 	}
+
 	draw.Draw(outImg, outImg.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
 
 	// Create our default white brush
@@ -159,6 +163,8 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 		return fmt.Errorf("error encoding PNG: %w", err)
 	}
 
+	// It's still okay to print success here, but often in Go libraries,
+	// even the success print is pushed to main.go. I've left it as is for your CLI experience!
 	fmt.Printf("Successfully generated ASCII art (%dx%d chars) -> %s\n", cfg.Width, newHeight, cfg.OutputPath)
 	return nil
 }
