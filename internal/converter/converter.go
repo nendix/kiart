@@ -28,6 +28,20 @@ type Config struct {
 	BgHex            string
 }
 
+func DefaultConfig() Config {
+	return Config{
+		Width:            510,
+		FontSize:         8.0,
+		DPI:              300.0,
+		SkipHex:          "",
+		TolerancePercent: 2.0,
+		OutputPath:       "ascii_art.png",
+		Shaded:           false,
+		Colored:          false,
+		BgHex:            "#000000",
+	}
+}
+
 var asciiChars = []rune{
 	' ', '.', '\'', '`', '^', '"', ',', ':', ';', 'I', 'l', '!', 'i', '>', '<', '~', '+', '_', '-', '?',
 	']', '[', '}', '{', '1', ')', '(', '|', '\\', '/', 't', 'f', 'j', 'r', 'x', 'n', 'u', 'v', 'c', 'z',
