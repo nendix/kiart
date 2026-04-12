@@ -3,7 +3,7 @@ BINARY_NAME=kiart
 MAIN_FILE=main.go
 BUILD_DIR=bin
 
-.PHONY: all help run fmt tidy install
+.PHONY: all help run fmt tidy install tag snapshot release
 
 all: tidy fmt test build
 
@@ -25,6 +25,7 @@ clean: ## Clean up built binaries
 	@echo "Cleaning up..."
 	@go clean
 	@rm -f $(BUILD_DIR)/$(BINARY_NAME)
+	@rm -rf dist/
 	@echo "Clean complete!"
 
 fmt: ## Format Go code
@@ -39,3 +40,20 @@ install: build ## Install the binary to your GOPATH
 	@echo "Installing $(BINARY_NAME) to GOPATH..."
 	@go install
 	@echo "Install complete!"
+
+# --- GORELEASER TARGETS ---
+
+tag: ## Create and push a new git tag. Usage: make tag v=v1.0.0
+	@if [ -z "$(v)" ]; then echo "Error: Please specify a version, e.g., make tag v=v1.0.0"; exit 1; fi
+	@echo "Creating tag $(v)..."
+	@git tag -a $(v) -m "Release $(v)"
+	@git push origin $(v)
+	@echo "Tag $(v) created and pushed to origin."
+
+snapshot: ## Build a local test release (does not publish)
+	@echo "Building local snapshot release..."
+	@goreleaser release --snapshot --clean
+
+release: ## Publish a new release to GitHub & Homebrew
+	@echo "Publishing release..."
+	@goreleaser release --clean
