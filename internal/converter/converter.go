@@ -51,17 +51,12 @@ var asciiChars = []rune{
 	'*', '#', 'M', 'W', '&', '8', '%', 'B', '@', '$',
 }
 
-var (
-	asciiLookup  [256]rune
-	grayUniforms [256]*image.Uniform
-)
+var asciiLookup [256]rune
 
 func init() {
 	for i := 0; i <= 255; i++ {
 		idx := int((float64(i) / 255.0) * float64(len(asciiChars)-1))
 		asciiLookup[i] = asciiChars[idx]
-
-		grayUniforms[i] = image.NewUniform(color.Gray{Y: uint8(i)})
 	}
 }
 
@@ -136,6 +131,16 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 	staticBrush := image.NewUniform(brushColor)
 	dynamicBrush := &image.Uniform{}
 
+	var shadedUniforms [256]*image.Uniform
+	for i := 0; i <= 255; i++ {
+		r := uint8((uint16(brushColor.R) * uint16(i)) / 255)
+		g := uint8((uint16(brushColor.G) * uint16(i)) / 255)
+		b := uint8((uint16(brushColor.B) * uint16(i)) / 255)
+		a := brushColor.A
+
+		shadedUniforms[i] = image.NewUniform(color.RGBA{r, g, b, a})
+	}
+
 	d := &font.Drawer{
 		Dst:  outImg,
 		Src:  staticBrush,
@@ -160,14 +165,14 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 				}
 			}
 
-			grayColor := color.GrayModel.Convert(pixel).(color.Gray)
-			char := asciiLookup[grayColor.Y]
+			luminance := color.GrayModel.Convert(pixel).(color.Gray)
+			char := asciiLookup[luminance.Y]
 
 			if cfg.Colored {
 				dynamicBrush.C = pixel
 				d.Src = dynamicBrush
 			} else if cfg.Shaded {
-				d.Src = grayUniforms[grayColor.Y]
+				d.Src = shadedUniforms[luminance.Y]
 			} else {
 				d.Src = staticBrush
 			}
