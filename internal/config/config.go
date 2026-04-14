@@ -20,7 +20,7 @@ func NewDefault() AppConfig {
 		DPI:              300.0,
 		SkipHex:          "",
 		TolerancePercent: 2.0,
-		OutputPath:       "ascii_art.png",
+		OutputPath:       "",
 		Shaded:           false,
 		Colored:          false,
 		FontHex:          "#FFFFFF",

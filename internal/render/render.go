@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/draw"
 	"math"
+	"strings"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
@@ -133,6 +134,39 @@ func (r *Renderer) Render(img image.Image) *image.RGBA {
 	}
 
 	return outImg
+}
+
+// RenderText converts an input image to plain ASCII text.
+func (r *Renderer) RenderText(img image.Image) string {
+	bounds := img.Bounds()
+	srcWidth, srcHeight := bounds.Dx(), bounds.Dy()
+
+	// Terminal chars are ~2x taller than wide, so halve the height ratio.
+	newHeight := int(float64(r.cfg.Width) * (float64(srcHeight) / float64(srcWidth)) * 0.5)
+
+	var buf strings.Builder
+	for y := range newHeight {
+		for x := range r.cfg.Width {
+			srcX := int(float64(x)/float64(r.cfg.Width)*float64(srcWidth)) + bounds.Min.X
+			srcY := int(float64(y)/float64(newHeight)*float64(srcHeight)) + bounds.Min.Y
+
+			pixel := img.At(srcX, srcY)
+
+			if r.useColorSkip {
+				pr, pg, pb, _ := pixel.RGBA()
+				currentRGB := color.RGBA{uint8(pr >> 8), uint8(pg >> 8), uint8(pb >> 8), 255}
+				if kicolor.Distance(currentRGB, r.skipColor) <= r.actualTolerance {
+					buf.WriteByte(' ')
+					continue
+				}
+			}
+
+			luminance := color.GrayModel.Convert(pixel).(color.Gray).Y
+			buf.WriteRune(ascii.Lookup[luminance])
+		}
+		buf.WriteByte('\n')
+	}
+	return buf.String()
 }
 
 // Close releases font resources.

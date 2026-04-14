@@ -28,7 +28,7 @@ func main() {
 	flag.StringVarP(&cfg.SkipHex, "skip", "", cfg.SkipHex, "HEX color to filter out")
 	flag.Float64VarP(&cfg.TolerancePercent, "tolerance", "t", cfg.TolerancePercent, "Color tolerance percentage (0-100)")
 
-	flag.StringVarP(&cfg.OutputPath, "output", "o", cfg.OutputPath, "Path to save the output image")
+	flag.StringVarP(&cfg.OutputPath, "output", "o", cfg.OutputPath, "Path to save the output PNG (default: print to stdout)")
 
 	flag.BoolVarP(&cfg.Shaded, "shaded", "S", cfg.Shaded, "Render characters using true grayscale shading")
 	flag.BoolVarP(&cfg.Colored, "colored", "C", cfg.Colored, "Render characters using original RGB colors")
@@ -78,14 +78,16 @@ func main() {
 	}
 	defer renderer.Close()
 
-	result := renderer.Render(img)
-
-	if err := savePNG(result, cfg.OutputPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
-		os.Exit(1)
+	if cfg.OutputPath == "" {
+		fmt.Print(renderer.RenderText(img))
+	} else {
+		result := renderer.Render(img)
+		if err := savePNG(result, cfg.OutputPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Successfully generated ASCII art -> %s\n", cfg.OutputPath)
 	}
-
-	fmt.Printf("Successfully generated ASCII art -> %s\n", cfg.OutputPath)
 }
 
 func savePNG(img image.Image, path string) error {
