@@ -1,4 +1,4 @@
-package converter
+package color
 
 import (
 	"fmt"
@@ -7,7 +7,9 @@ import (
 	"strings"
 )
 
-func ParseHexColor(hex string) (color.RGBA, error) {
+// ParseHex parses a hex color string (#RRGGBB or #RRGGBBAA) into a color.RGBA.
+// Also accepts "transparent" as a special value.
+func ParseHex(hex string) (color.RGBA, error) {
 	if strings.ToLower(hex) == "transparent" {
 		return color.RGBA{0, 0, 0, 0}, nil
 	}
@@ -28,21 +30,26 @@ func ParseHexColor(hex string) (color.RGBA, error) {
 		if err != nil || n != 4 {
 			return color.RGBA{}, fmt.Errorf("invalid hex characters: %s", hex)
 		}
-
-		// GO GOTCHA: color.RGBA requires pre-multiplied alpha!
-		// We must mathematically reduce the RGB values based on the Alpha value.
+		// color.RGBA requires pre-multiplied alpha
 		rr := uint8((uint16(r) * uint16(a)) / 255)
 		gg := uint8((uint16(g) * uint16(a)) / 255)
 		bb := uint8((uint16(b) * uint16(a)) / 255)
-
 		return color.RGBA{rr, gg, bb, a}, nil
 	}
 
 	return color.RGBA{}, fmt.Errorf("invalid hex format, use #RRGGBB or #RRGGBBAA")
 }
 
-// colorDistance calculates the 3D distance between two colors
-func colorDistance(c1, c2 color.RGBA) float64 {
+// ParseHexWithDefault parses a hex color string, returning defaultColor if hex is empty.
+func ParseHexWithDefault(hex string, defaultColor color.RGBA) (color.RGBA, error) {
+	if hex == "" {
+		return defaultColor, nil
+	}
+	return ParseHex(hex)
+}
+
+// Distance calculates the Euclidean distance between two colors in RGB space.
+func Distance(c1, c2 color.RGBA) float64 {
 	rDiff := float64(c1.R) - float64(c2.R)
 	gDiff := float64(c1.G) - float64(c2.G)
 	bDiff := float64(c1.B) - float64(c2.B)

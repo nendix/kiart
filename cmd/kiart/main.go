@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"image"
 	_ "image/jpeg"
+	"image/png"
 	_ "image/png"
 	"os"
 
 	flag "github.com/spf13/pflag"
 
 	"github.com/nendix/kiart/internal/config"
-	"github.com/nendix/kiart/internal/converter"
+	"github.com/nendix/kiart/internal/render"
 )
 
 func main() {
@@ -35,7 +36,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "kiart - Image to ASCII Art Converter\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n  kiart [options] <path-to-image>\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
-
 		flag.PrintDefaults()
 	}
 
@@ -62,11 +62,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = converter.ProcessAndSave(img, cfg)
+	renderer, err := render.New(cfg)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
+		os.Exit(1)
+	}
+	defer renderer.Close()
+
+	result := renderer.Render(img)
+
+	if err := savePNG(result, cfg.OutputPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("Successfully generated ASCII art -> %s\n", cfg.OutputPath)
+}
+
+func savePNG(img image.Image, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("error creating output file: %w", err)
+	}
+	defer f.Close()
+
+	if err := png.Encode(f, img); err != nil {
+		return fmt.Errorf("error encoding PNG: %w", err)
+	}
+	return nil
 }
