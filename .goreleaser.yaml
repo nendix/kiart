@@ -1,41 +1,63 @@
 version: 2
 
-# 1. Define how to build the binary
+project_name: kiart
+
+before:
+  hooks:
+    - go mod tidy
+
 builds:
   - id: kiart
-    dir: cmd/kiart # Points to where your main.go is
+    main: ./cmd/kiart
     binary: kiart
     env:
       - CGO_ENABLED=0
-    goos:
-      - darwin
-      - linux
-      - windows
-    goarch:
-      - amd64
-      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
 
-# 2. Define how to package the binaries
 archives:
-  - format: tar.gz
-    # Use zip for Windows
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_{{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+        formats: [zip]
 
-# 3. Generate SHA256 checksums
 checksum:
   name_template: "checksums.txt"
 
-# 4. Create the Homebrew Formula and push to your Tap!
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+
+release:
+  github:
+    owner: nendix
+    name: kiart
+  draft: false
+  prerelease: auto
+
 brews:
   - name: kiart
     description: "A blazing fast CLI tool to convert images to high-res ASCII art."
     homepage: "https://github.com/nendix/kiart"
-
     repository:
       owner: nendix
       name: tap
-
     directory: Formula
