@@ -15,7 +15,7 @@ type AppConfig struct {
 
 func NewDefault() AppConfig {
 	return AppConfig{
-		Width:            510,
+		Width:            480,
 		FontSize:         8.0,
 		DPI:              150.0,
 		SkipHex:          "",
