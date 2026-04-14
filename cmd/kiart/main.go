@@ -14,7 +14,11 @@ import (
 	"github.com/nendix/kiart/internal/render"
 )
 
+var version = "dev"
+
 func main() {
+	showVersion := flag.BoolP("version", "v", false, "Print version and exit")
+
 	cfg := config.NewDefault()
 
 	flag.IntVarP(&cfg.Width, "width", "w", cfg.Width, "Width of the output ASCII art in characters")
@@ -40,6 +44,11 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("kiart", version)
+		return
+	}
 
 	args := flag.Args()
 	if len(args) < 1 {

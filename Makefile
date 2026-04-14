@@ -2,6 +2,8 @@
 BINARY_NAME=kiart
 MAIN_FILE=main.go
 BUILD_DIR=bin
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 
 .PHONY: all help run fmt tidy install tag snapshot release
 
@@ -12,7 +14,7 @@ help: ## Show help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\033[36m\033[0m\n"} /^[$$()% a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 build: ## Build the binary
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) cmd/$(BINARY_NAME)/$(MAIN_FILE)
+	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) cmd/$(BINARY_NAME)/$(MAIN_FILE)
 
 run: build ## Run the binary
 	@./$(BUILD_DIR)/$(BINARY_NAME) $(ARGS)
