@@ -29,13 +29,13 @@ install: ## Install binary to GOPATH
 clean: ## Remove build artifacts
 	rm -rf bin/ dist/
 
-tag: ## Create and push a git tag (name=v1.0.0)
-	@if [ -z "$(name)" ]; then echo "Error: Please specify a version, e.g., make tag name=v1.0.0"; exit 1; fi
-	@git tag -a $(name) -m "Release $(name)"
-	@git push origin $(name)
-
 snapshot: ## Build snapshot release (no tag required)
 	goreleaser release --snapshot --clean
 
-release: ## Publish release (requires GITHUB_TOKEN + tag)
-	goreleaser release --clean
+release: ## Publish release for a tag (tag=v1.0.0)
+	@if [ -z "$(tag)" ]; then echo "Error: Please specify a tag, e.g., make release tag=v1.0.0"; exit 1; fi
+	@if ! git rev-parse "$(tag)" >/dev/null 2>&1; then \
+		git tag -a $(tag) -m "Release $(tag)"; \
+		git push origin $(tag); \
+	fi
+	goreleaser release --clean --release-tag $(tag)
