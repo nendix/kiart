@@ -97,7 +97,8 @@ func savePNG(img image.Image, path string) error {
 	}
 	defer f.Close()
 
-	if err := png.Encode(f, img); err != nil {
+	enc := &png.Encoder{CompressionLevel: png.BestCompression}
+	if err := enc.Encode(f, img); err != nil {
 		return fmt.Errorf("error encoding PNG: %w", err)
 	}
 	return nil

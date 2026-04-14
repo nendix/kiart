@@ -17,7 +17,7 @@ func NewDefault() AppConfig {
 	return AppConfig{
 		Width:            510,
 		FontSize:         8.0,
-		DPI:              300.0,
+		DPI:              150.0,
 		SkipHex:          "",
 		TolerancePercent: 2.0,
 		OutputPath:       "",
