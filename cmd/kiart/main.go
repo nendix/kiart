@@ -9,11 +9,12 @@ import (
 
 	flag "github.com/spf13/pflag"
 
+	"github.com/nendix/kiart/internal/config"
 	"github.com/nendix/kiart/internal/converter"
 )
 
 func main() {
-	cfg := converter.DefaultConfig()
+	cfg := config.NewDefault()
 
 	flag.IntVarP(&cfg.Width, "width", "w", cfg.Width, "Width of the output ASCII art in characters")
 	flag.Float64VarP(&cfg.FontSize, "font-size", "s", cfg.FontSize, "Font size in points")
@@ -50,20 +51,22 @@ func main() {
 
 	file, err := os.Open(imagePath)
 	if err != nil {
-		fmt.Printf("Error opening image: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error opening image: %v\n", err)
 		os.Exit(1)
 	}
 	defer file.Close()
 
 	img, _, err := image.Decode(file)
 	if err != nil {
-		fmt.Printf("Error decoding image: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error decoding image: %v\n", err)
 		os.Exit(1)
 	}
 
 	err = converter.ProcessAndSave(img, cfg)
 	if err != nil {
-		fmt.Printf("Fatal error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
 		os.Exit(1)
 	}
+
+	fmt.Printf("Successfully generated ASCII art -> %s\n", cfg.OutputPath)
 }

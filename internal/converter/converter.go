@@ -9,40 +9,13 @@ import (
 	"math"
 	"os"
 
+	"github.com/nendix/kiart/internal/config"
+
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
-
-// Config holds all the settings for the ASCII conversion
-type Config struct {
-	Width            int
-	FontSize         float64
-	DPI              float64
-	SkipHex          string
-	TolerancePercent float64
-	OutputPath       string
-	Shaded           bool
-	Colored          bool
-	FontHex          string
-	BgHex            string
-}
-
-func DefaultConfig() Config {
-	return Config{
-		Width:            510,
-		FontSize:         8.0,
-		DPI:              300.0,
-		SkipHex:          "",
-		TolerancePercent: 2.0,
-		OutputPath:       "ascii_art.png",
-		Shaded:           false,
-		Colored:          false,
-		FontHex:          "#FFFFFF",
-		BgHex:            "#000000",
-	}
-}
 
 var asciiChars = []rune{
 	' ', '.', '\'', '`', '^', '"', ',', ':', ';', 'I', 'l', '!', 'i', '>', '<', '~', '+', '_', '-', '?',
@@ -60,39 +33,30 @@ func init() {
 	}
 }
 
-func ProcessAndSave(img image.Image, cfg Config) error {
+// ProcessAndSave orchestrates the entire image to ASCII conversion pipeline
+func ProcessAndSave(img image.Image, cfg config.AppConfig) error {
 	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
+	width, height := bounds.Dx(), bounds.Dy()
 
+	// 1. Setup Skip Color Filtering
 	var skipColor color.RGBA
-	useColorSkip := false
 	var actualTolerance float64
+	useColorSkip := cfg.SkipHex != ""
 
-	if cfg.SkipHex != "" {
+	if useColorSkip {
 		parsedColor, err := ParseHexColor(cfg.SkipHex)
 		if err != nil {
 			return fmt.Errorf("invalid skip hex color '%s': %w", cfg.SkipHex, err)
 		}
-
 		skipColor = parsedColor
-		useColorSkip = true
 		maxDist := math.Sqrt(255.0*255.0 + 255.0*255.0 + 255.0*255.0)
 		actualTolerance = (cfg.TolerancePercent / 100.0) * maxDist
 	}
 
-	tt, err := opentype.Parse(gomono.TTF)
+	// 2. Setup Font & Dimensions
+	face, err := loadFontFace(cfg.FontSize, cfg.DPI)
 	if err != nil {
-		return fmt.Errorf("error parsing font: %w", err)
-	}
-
-	face, err := opentype.NewFace(tt, &opentype.FaceOptions{
-		Size:    cfg.FontSize,
-		DPI:     cfg.DPI,
-		Hinting: font.HintingFull,
-	})
-	if err != nil {
-		return fmt.Errorf("error creating font face: %w", err)
+		return err
 	}
 	defer face.Close()
 
@@ -101,45 +65,27 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 	advance, _ := face.GlyphAdvance('@')
 	charWidth := advance.Ceil()
 
-	fontRatio := float64(charWidth) / float64(charHeight)
-	imgRatio := float64(height) / float64(width)
-	newHeight := int(float64(cfg.Width) * imgRatio * fontRatio)
-
+	newHeight := int(float64(cfg.Width) * (float64(height) / float64(width)) * (float64(charWidth) / float64(charHeight)))
 	outWidth := cfg.Width * charWidth
 	outHeight := newHeight * charHeight
-	outImg := image.NewRGBA(image.Rect(0, 0, outWidth, outHeight))
 
-	bgColor := color.RGBA{0, 0, 0, 255} // Default to solid black
-	if cfg.BgHex != "" {
-		parsedBg, err := ParseHexColor(cfg.BgHex)
-		if err != nil {
-			return fmt.Errorf("invalid background hex color '%s': %w", cfg.BgHex, err)
-		}
-		bgColor = parsedBg
+	// 3. Setup Canvas Background
+	bgColor, err := parseColorOptional(cfg.BgHex, color.RGBA{0, 0, 0, 255})
+	if err != nil {
+		return fmt.Errorf("invalid background hex: %w", err)
 	}
-
+	outImg := image.NewRGBA(image.Rect(0, 0, outWidth, outHeight))
 	draw.Draw(outImg, outImg.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
 
-	brushColor := color.RGBA{255, 255, 255, 255}
-	if cfg.FontHex != "" {
-		parsedFontColor, err := ParseHexColor(cfg.FontHex)
-		if err != nil {
-			return fmt.Errorf("invalid font hex color '%s': %w", cfg.FontHex, err)
-		}
-		brushColor = parsedFontColor
+	// 4. Setup Brushes
+	fontColor, err := parseColorOptional(cfg.FontHex, color.RGBA{255, 255, 255, 255})
+	if err != nil {
+		return fmt.Errorf("invalid font hex: %w", err)
 	}
-	staticBrush := image.NewUniform(brushColor)
+
+	staticBrush := image.NewUniform(fontColor)
 	dynamicBrush := &image.Uniform{}
-
-	var shadedUniforms [256]*image.Uniform
-	for i := 0; i <= 255; i++ {
-		r := uint8((uint16(brushColor.R) * uint16(i)) / 255)
-		g := uint8((uint16(brushColor.G) * uint16(i)) / 255)
-		b := uint8((uint16(brushColor.B) * uint16(i)) / 255)
-		a := brushColor.A
-
-		shadedUniforms[i] = image.NewUniform(color.RGBA{r, g, b, a})
-	}
+	shadedUniforms := buildShadedLUT(fontColor)
 
 	d := &font.Drawer{
 		Dst:  outImg,
@@ -147,6 +93,7 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 		Face: face,
 	}
 
+	// 5. Core Rendering Loop
 	for y := range newHeight {
 		for x := range cfg.Width {
 			srcX := int(float64(x)/float64(cfg.Width)*float64(width)) + bounds.Min.X
@@ -157,22 +104,20 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 			if useColorSkip {
 				pr, pg, pb, _ := pixel.RGBA()
 				currentRGB := color.RGBA{uint8(pr >> 8), uint8(pg >> 8), uint8(pb >> 8), 255}
-
-				dist := colorDistance(currentRGB, skipColor)
-
-				if dist <= actualTolerance {
+				if colorDistance(currentRGB, skipColor) <= actualTolerance {
 					continue
 				}
 			}
 
-			luminance := color.GrayModel.Convert(pixel).(color.Gray)
-			char := asciiLookup[luminance.Y]
+			// Cleanly extract just the Y (luminance) value as a uint8
+			luminance := color.GrayModel.Convert(pixel).(color.Gray).Y
+			char := asciiLookup[luminance]
 
 			if cfg.Colored {
 				dynamicBrush.C = pixel
 				d.Src = dynamicBrush
 			} else if cfg.Shaded {
-				d.Src = shadedUniforms[luminance.Y]
+				d.Src = shadedUniforms[luminance]
 			} else {
 				d.Src = staticBrush
 			}
@@ -185,19 +130,49 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 		}
 	}
 
-	outFile, err := os.Create(cfg.OutputPath)
+	// 6. Output to File
+	return savePNG(outImg, cfg.OutputPath)
+}
+
+func loadFontFace(fontSize, dpi float64) (font.Face, error) {
+	tt, err := opentype.Parse(gomono.TTF)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing font: %w", err)
+	}
+	return opentype.NewFace(tt, &opentype.FaceOptions{
+		Size:    fontSize,
+		DPI:     dpi,
+		Hinting: font.HintingFull,
+	})
+}
+
+func parseColorOptional(hexStr string, defaultColor color.RGBA) (color.RGBA, error) {
+	if hexStr == "" {
+		return defaultColor, nil
+	}
+	return ParseHexColor(hexStr)
+}
+
+func buildShadedLUT(baseColor color.RGBA) [256]*image.Uniform {
+	var lut [256]*image.Uniform
+	for i := 0; i <= 255; i++ {
+		r := uint8((uint16(baseColor.R) * uint16(i)) / 255)
+		g := uint8((uint16(baseColor.G) * uint16(i)) / 255)
+		b := uint8((uint16(baseColor.B) * uint16(i)) / 255)
+		lut[i] = image.NewUniform(color.RGBA{r, g, b, baseColor.A})
+	}
+	return lut
+}
+
+func savePNG(img image.Image, path string) error {
+	outFile, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("error creating output file: %w", err)
 	}
 	defer outFile.Close()
 
-	err = png.Encode(outFile, outImg)
-	if err != nil {
+	if err := png.Encode(outFile, img); err != nil {
 		return fmt.Errorf("error encoding PNG: %w", err)
 	}
-
-	// It's still okay to print success here, but often in Go libraries,
-	// even the success print is pushed to main.go. I've left it as is for your CLI experience!
-	fmt.Printf("Successfully generated ASCII art (%dx%d chars) -> %s\n", cfg.Width, newHeight, cfg.OutputPath)
 	return nil
 }
