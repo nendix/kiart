@@ -25,6 +25,7 @@ type Config struct {
 	OutputPath       string
 	Shaded           bool
 	Colored          bool
+	FontHex          string
 	BgHex            string
 }
 
@@ -38,6 +39,7 @@ func DefaultConfig() Config {
 		OutputPath:       "ascii_art.png",
 		Shaded:           false,
 		Colored:          false,
+		FontHex:          "#FFFFFF",
 		BgHex:            "#000000",
 	}
 }
@@ -123,12 +125,20 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 
 	draw.Draw(outImg, outImg.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
 
-	whiteBrush := image.NewUniform(color.White)
+	brushColor := color.RGBA{255, 255, 255, 255}
+	if cfg.FontHex != "" {
+		parsedFontColor, err := ParseHexColor(cfg.FontHex)
+		if err != nil {
+			return fmt.Errorf("invalid font hex color '%s': %w", cfg.FontHex, err)
+		}
+		brushColor = parsedFontColor
+	}
+	staticBrush := image.NewUniform(brushColor)
 	dynamicBrush := &image.Uniform{}
 
 	d := &font.Drawer{
 		Dst:  outImg,
-		Src:  whiteBrush,
+		Src:  staticBrush,
 		Face: face,
 	}
 
@@ -150,21 +160,16 @@ func ProcessAndSave(img image.Image, cfg Config) error {
 				}
 			}
 
-			// We STILL need the grayscale value to figure out which ASCII character to use!
 			grayColor := color.GrayModel.Convert(pixel).(color.Gray)
 			char := asciiLookup[grayColor.Y]
 
-			// --- NEW: Priority check for brushes ---
 			if cfg.Colored {
-				// Mutate our reusable brush with the exact original pixel color
 				dynamicBrush.C = pixel
 				d.Src = dynamicBrush
 			} else if cfg.Shaded {
-				// Use the pre-mixed grayscale brush
 				d.Src = grayUniforms[grayColor.Y]
 			} else {
-				// Default black-and-white
-				d.Src = whiteBrush
+				d.Src = staticBrush
 			}
 
 			d.Dot = fixed.Point26_6{
