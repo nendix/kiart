@@ -38,4 +38,6 @@ release: ## Publish release for a tag (tag=v1.0.0)
 		git tag -a $(tag) -m "Release $(tag)"; \
 		git push origin $(tag); \
 	fi
-	goreleaser release --clean --release-tag $(tag)
+	git checkout $(tag)
+	goreleaser release --clean
+	git checkout -
