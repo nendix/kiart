@@ -1,7 +1,27 @@
+# Build
+bin/
+dist/
+
+# Dependencies
+vendor/
+
+# Test
+*.test
+cover.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Images (output artifacts)
 *.png
 *.jpg
 *.jpeg
-
-.DS_Store
-
-bin/
